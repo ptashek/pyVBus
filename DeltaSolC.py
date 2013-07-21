@@ -21,6 +21,7 @@ from VBusPacket import VBusPacket
 
 class DeltaSolC(PacketProcessor):
     NAME = "RESOL DeltaSol C"
+    # sensors: 4, relays: 2, module: 1, bus subaddress: 2
     ADDRESS = 16914  # 0x4212
     PROTOCOL_VERSION = 1  # 0x10
 
@@ -126,9 +127,11 @@ class DeltaSolC(PacketProcessor):
         'suffix': None
     }
     
-    def __init__(self):
+    def __init__(self, results_callback=None):
         num_workers = cpu_count()
-        super(DeltaSolC, self).__init__(num_workers, self.show)
+	if results_callback is None:
+            results_callback = self.show
+	super(DeltaSolC, self).__init__(num_workers, results_callback)
         
     def show(self):
         while True:
@@ -156,7 +159,7 @@ class DeltaSolC(PacketProcessor):
                     p_sr2 = packet.get_value(self.PUMP_SR2)
                     h_r1 = packet.get_value(self.HOURS_R1)
                     h_r2 = packet.get_value(self.HOURS_R2)
-                    sys_t = packet.get_value(self.SYSTEM_TIME)
+                    sys_t = packet.get_raw_bytes(self.SYSTEM_TIME)
                     self.result_q.put({"t1":ts1, "t2":ts2, "t3":ts3, "t4":ts4, "sr1":p_sr1, "sr2":p_sr2, "h1":h_r1, "h2":h_r2, "sys_t":sys_t})
                 else:
                     packet = None

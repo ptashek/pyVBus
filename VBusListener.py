@@ -28,6 +28,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 '''
+from DataLogger import DataLogger
 from DeltaSolC import DeltaSolC
 from argparse import ArgumentParser
 from socket import socket, SOCK_STREAM, AF_INET, SOL_TCP
@@ -40,12 +41,22 @@ class VBusListener():
         parser = ArgumentParser(description="Solar Controller Data Collector")
         parser.add_argument('-s', '--src', type=str, help="Controller IP Address")
         parser.add_argument('-p', '--port', type=int, help="Controller Port")
+        parser.add_argument('-f', '--file', type=str, help="Data file", default='/tmp/vbus_data.log')      
         parser.add_argument('-P', '--pass', type=str, help="Password", default=None)      
         self.args = vars(parser.parse_args())
    
-        self.packet_processor = DeltaSolC()
+        self.packet_processor = DeltaSolC(self.log)
+        self.data_logger= DataLogger(self.args["file"])
         self.sock = socket(AF_INET, SOCK_STREAM, SOL_TCP)
         self.sock.settimeout(5.0)
+
+    def log(self):
+        result_q = self.packet_processor.result_q
+        while True:
+            result = result_q.get()
+            if result is None:
+                break
+            self.data_logger.write_data(result)
    
     def cleanup(self):
         self.sock.close()

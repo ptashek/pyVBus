@@ -148,6 +148,16 @@ class VBusPacket(VBusProtocol):
         if factor:
             value *= factor
         return value   
+
+    def get_raw_bytes(self, value_spec):
+        offset = value_spec['offset']
+        size = value_spec['size']
+        bytes_wanted = offset + size
+
+        if bytes_wanted > len(self.packet):
+            return None
+        return self.packet[offset:bytes_wanted]
+
     
     def __str__(self):
         return "Version: %s;  Destination: %s;  Source: %s; Command: '%s'" % (self.version, self.__dst, self.__src, self.command_string(self.__cmd))
