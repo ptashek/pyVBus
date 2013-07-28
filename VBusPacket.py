@@ -121,18 +121,33 @@ class VBusPacket(VBusProtocol):
     @property
     def destination_address(self):
         return self.__dst
+
+    @property
+    def timestamp(self):
+        return self.__timestamp
     
     def get_value(self, value_spec):
         offset = value_spec['offset']
         size = value_spec['size']
         bit_size = size * 8
         value = 0
-      
-        try:
+
+        if 'format' in value_spec.keys():
+            format = value_spec['format']
+        else:
+            format = None
+
+        if 'factor' in value_spec.keys():
             factor = value_spec['factor']
-        except KeyError:
+        else:
             factor = None
-       
+      
+        if format == 'time':
+            value = self.packet[offset] + self.packet[offset + 1] * 0x100
+            hours = int(value / 60)
+            minutes = value - hours * 60
+            return "%s:%s" % ('{0:02d}'.format(hours), '{0:02d}'.format(minutes))
+
         for i in range(size):
             if offset + i < self.__size:
                 value += self.packet[(offset + i)] << (8 * i)

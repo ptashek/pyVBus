@@ -13,27 +13,11 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 '''
-'''
-   Copyright 2013 Lukasz Szmit
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-'''
-from DataLogger import DataLogger
 from DeltaSolC import DeltaSolC
 from argparse import ArgumentParser
 from socket import socket, SOCK_STREAM, AF_INET, SOL_TCP
-from sys import exit
 from time import sleep
+import json
 
 class VBusListener():  
         
@@ -41,14 +25,29 @@ class VBusListener():
         parser = ArgumentParser(description="Solar Controller Data Collector")
         parser.add_argument('-s', '--src', type=str, help="Controller IP Address")
         parser.add_argument('-p', '--port', type=int, help="Controller Port")
+        parser.add_argument('-l', '--logger', type=str, help="Data logger type", default='json')
         parser.add_argument('-f', '--file', type=str, help="Data file", default='/tmp/vbus_data.log')      
         parser.add_argument('-P', '--pass', type=str, help="Password", default=None)      
+        parser.add_argument('-k', '--keys', type=str, help="JSON list of keys to dump", default=None)      
         self.args = vars(parser.parse_args())
    
         self.packet_processor = DeltaSolC(self.log)
-        self.data_logger= DataLogger(self.args["file"])
         self.sock = socket(AF_INET, SOCK_STREAM, SOL_TCP)
         self.sock.settimeout(5.0)
+        
+        if self.args['keys']:
+            keys = json.loads(self.args['keys'])
+        else:
+            keys = None
+
+        if self.args['logger'] == 'json':
+            from logger.JSONLogger import JSONLogger 
+            self.data_logger = JSONLogger(self.args["file"], keys)
+        elif self.args['logger'] == 'rrd':
+            from logger.RRDLogger import RRDLogger 
+            self.data_logger = RRDLogger(self.args["file"], keys)
+        else:
+            raise Exception("Unknown logger type")
 
     def log(self):
         result_q = self.packet_processor.result_q

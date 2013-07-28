@@ -13,27 +13,31 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 '''
+from logger.DataLogger import DataLogger
 import json
 
-class DataLogger(object):
+class JSONLogger(DataLogger):
 
-    def __init__(self, dst):
-        self.dst = open(dst, 'a+')
-
-    def __enter__(self):
-        return self
+    def __init__(self, dst, keys=None):
+        super(JSONLogger, self).__init__(dst, keys)
+        self.json_dst = open(dst, 'a+')
 
     def __exit__(self, type, value, traceback):
         if not self.dst.closed:
-            self.dst.flush()
-            self.dst.close()
+            self.json_dst.flush()
+            self.json_dst.close()
             
 
     def write_data(self, data):
+        if self.keys:
+            filter = [key for key in data.keys() if key not in self.keys]
+            for key in filter:
+                del data[key]
+
         line = json.dumps(data)
         if not line[-1:] == '\n':
             line += '\n'
-        self.dst.write(line)
+        self.json_dst.write(line)
 
 if __name__ == '__main__':
     exit(1)

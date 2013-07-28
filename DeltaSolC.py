@@ -18,7 +18,6 @@ from multiprocessing import cpu_count
 from threading import current_thread
 from VBusPacket import VBusPacket
 
-
 class DeltaSolC(PacketProcessor):
     NAME = "RESOL DeltaSol C"
     # sensors: 4, relays: 2, module: 1, bus subaddress: 2
@@ -124,7 +123,8 @@ class DeltaSolC(PacketProcessor):
         'offset': 22,
         'size': 2,
         'factor': 1,
-        'suffix': None
+        'suffix': None,
+        'format': 'time'
     }
     
     def __init__(self, results_callback=None):
@@ -159,13 +159,11 @@ class DeltaSolC(PacketProcessor):
                     p_sr2 = packet.get_value(self.PUMP_SR2)
                     h_r1 = packet.get_value(self.HOURS_R1)
                     h_r2 = packet.get_value(self.HOURS_R2)
-                    sys_t = packet.get_raw_bytes(self.SYSTEM_TIME)
-                    self.result_q.put({"t1":ts1, "t2":ts2, "t3":ts3, "t4":ts4, "sr1":p_sr1, "sr2":p_sr2, "h1":h_r1, "h2":h_r2, "sys_t":sys_t})
+                    # sys_t = packet.get_raw_bytes(self.SYSTEM_TIME)
+                    sys_t = packet.get_value(self.SYSTEM_TIME)
+                    self.result_q.put({"time":packet.timestamp, "t1":ts1, "t2":ts2, "t3":ts3, "t4":ts4, "sr1":p_sr1, "sr2":p_sr2, "h1":h_r1, "h2":h_r2, "sys_t":sys_t})
                 else:
                     packet = None
             except Exception as e:
                 print "Exception on %s: %s" % (current_thread().name, e)
                 continue
-    
-                
-        
