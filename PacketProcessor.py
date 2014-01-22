@@ -20,7 +20,8 @@ from Queue import Queue
 
 class PacketProcessor(object):
     
-    def __init__(self, num_workers, results_callback):
+    def __init__(self, num_workers, results_callback, log_callback=None):
+        self._log = log_callback
         self.work_q = Queue()
         self.result_q = Queue()
         self.num_workers = num_workers

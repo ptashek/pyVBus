@@ -127,11 +127,11 @@ class DeltaSolC(PacketProcessor):
         'format': 'time'
     }
     
-    def __init__(self, results_callback=None):
+    def __init__(self, results_callback=None, log_callback=None):
         num_workers = cpu_count()
 	if results_callback is None:
             results_callback = self.show
-	super(DeltaSolC, self).__init__(num_workers, results_callback)
+	super(DeltaSolC, self).__init__(num_workers, results_callback, log_callback)
         
     def show(self):
         while True:
@@ -165,5 +165,9 @@ class DeltaSolC(PacketProcessor):
                 else:
                     packet = None
             except Exception as e:
-                print "Exception on %s: %s" % (current_thread().name, e)
+                msg = "Exception on %s: %s" % (current_thread().name, e)
+                if self._log:
+                    self._log.error(msg)
+                else:
+                    print msg
                 continue
