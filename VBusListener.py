@@ -19,8 +19,11 @@ from socket import socket, timeout, SOCK_STREAM, AF_INET, SOL_TCP
 from time import sleep
 import json
 import daemon
+import daemon.pidfile
 import logging
 import logging.handlers
+import signal
+import os, pwd, grp
 
 class VBusListener():  
         
@@ -31,10 +34,21 @@ class VBusListener():
         parser.add_argument('-f', '--format', type=str, help='Data logger type', default='json')
         parser.add_argument('-d', '--dst', type=str, help='Data file', default='/tmp/vbus_data.log')      
         parser.add_argument('-P', '--pass', type=str, help='Password', default=None)      
-        parser.add_argument('-k', '--keys', type=str, help='JSON list of keys to dump', default=None)      
+        parser.add_argument('-k', '--keys', type=str, help='Comma delimited list of keys to dump', default=None)      
         parser.add_argument('-l', '--log', type=str, help='Debug log path', default='/tmp/vbus_debug.log')      
         parser.add_argument('-t', '--timeout', type=int, help='Socket timeout', default=5)      
+        parser.add_argument('-u', '--user', type=str, help='System user to run as', default='vbus')      
+        parser.add_argument('-g', '--group', type=str, help='System group to run as', default='vbus')      
         self.args = vars(parser.parse_args())
+
+        try:
+            if os.getuid() == 0:
+                os.setgroups([])
+                os.setgid(grp.getgrnam(self.args['user']).gr_gid)
+                os.setuid(pwd.getpwnam(self.args['group']).pw_uid)
+                os.umask(077)
+        except:
+            exit(255)
 
         self.__setup_logging()
    
@@ -44,7 +58,7 @@ class VBusListener():
         )
         
         if self.args['keys']:
-            keys = json.loads(self.args['keys'])
+            keys = self.args['keys'].split(',')
         else:
             keys = None
 
@@ -56,6 +70,13 @@ class VBusListener():
             self.data_logger = RRDLogger(self.args['dst'], keys)
         else:
             raise Exception('Unknown format type')
+
+        signal.signal(signal.SIGTERM, self.__term_handler)
+
+    def __term_handler(self, _signo, _stack_frame):
+        self._log.info('TERM signal received. Quitting!');
+        self.cleanup()
+        exit(0)
 
     def __setup_logging(self):
         self._log = logging.getLogger(__name__)
@@ -145,7 +166,8 @@ class VBusListener():
                 continue
         
 if __name__ == '__main__':
-    with daemon.DaemonContext():
+    pidfile = daemon.pidfile.PIDLockFile('/var/run/vbusd.pid')
+    with daemon.DaemonContext(pidfile=pidfile):
         vbus_listener = VBusListener()
         vbus_listener.run()
     vbus_listener.cleanup()
