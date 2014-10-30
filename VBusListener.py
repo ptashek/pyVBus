@@ -15,7 +15,7 @@
 '''
 from DeltaSolC import DeltaSolC
 from argparse import ArgumentParser
-from socket import socket, SOCK_STREAM, AF_INET, SOL_TCP
+from socket import socket, timeout, SOCK_STREAM, AF_INET, SOL_TCP
 from time import sleep
 import json
 import daemon
@@ -33,6 +33,7 @@ class VBusListener():
         parser.add_argument('-P', '--pass', type=str, help='Password', default=None)      
         parser.add_argument('-k', '--keys', type=str, help='JSON list of keys to dump', default=None)      
         parser.add_argument('-l', '--log', type=str, help='Debug log path', default='/tmp/vbus_debug.log')      
+        parser.add_argument('-t', '--timeout', type=int, help='Socket timeout', default=5)      
         self.args = vars(parser.parse_args())
 
         self.__setup_logging()
@@ -41,8 +42,6 @@ class VBusListener():
             results_callback=self.write_data, 
             log_callback=self._log
         )
-        self.sock = socket(AF_INET, SOCK_STREAM, SOL_TCP)
-        self.sock.settimeout(5.0)
         
         if self.args['keys']:
             keys = json.loads(self.args['keys'])
@@ -83,11 +82,13 @@ class VBusListener():
     def connect(self):
         while True:
             try:
+                self.sock = socket(AF_INET, SOCK_STREAM, SOL_TCP)
+                self.sock.settimeout(self.args['timeout'])
                 vbus = (self.args['src'], self.args['port'])
                 self._log.info('Connecting to %s:%s' % vbus)
                 self.sock.connect(vbus)
                 break
-            except socket.error as e:
+            except timeout as e:
                 self._log.exception('Retrying: %s' % e)
                 self.sock.close()
                 sleep(5)
@@ -101,7 +102,10 @@ class VBusListener():
             try:
                 while self.packet_processor.is_alive():
                     r = self.sock.recv(1024)
-                    if not r:
+                    if len(r) == 0:
+                        self._log.error('No data received!')
+                        self.sock.close()
+                        self.connect()
                         continue
                             
                     if '+HELLO' in r:                
@@ -118,14 +122,20 @@ class VBusListener():
                     d = ''
                     ''' The fun part '''
                     while True:
-                        d += self.sock.recv(1024)
+                        r = self.sock.recv(1024)
+                        if len(r) == 0:
+                            self._log.error('No data received!')
+                            self.connect()
+                            break
+
+                        d += r
                         if '\xaa' in d:
                             try:
                                 s = d.index('\xaa')
                                 e = d[s + 1:].index('\xaa')
-                                r = d[s:e + 1]
+                                p = d[s:e + 1]
                                 d = d[e + 1:]                         
-                                self.packet_processor.put_packet(r)
+                                self.packet_processor.put_packet(p)
                             except ValueError:
                                 continue
             except Exception as e:
